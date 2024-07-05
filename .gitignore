@@ -1,0 +1,25 @@
+# PyCharm and VS Code
+.idea/
+.vscode/
+*/__pycache__/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook
+*/.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# General macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
