@@ -2,37 +2,62 @@ import streamlit as st
 from app_utils import get_person_candidates, get_coauthors_list, get_proceedings_list, get_scholarly_article_list, get_scholarly_article_author_list
 import pandas as pd
 
-def on_name_change():
-    pass
+def split_name_and_id(selected_id):
+    if selected_id == "Not Selected":
+        return None, None
+    else:
+        name, dblp_id = selected_id.split("(")
+        name = name.strip()
+        dblp_id = dblp_id.replace(")","").strip()
+        return name, dblp_id
 
-def on_search_click():
-    st.session_state['search_done'] = True
+def set_current_view(c_view: str):
+    st.session_state.current_view = c_view
+
+def clear_dblp_id():
+    st.session_state.current_view = "search_id"
+    st.session_state["selected_name"] = None
+    st.session_state["selected_dblp_id"] = None
+
+def on_selectbox_change():
+    selected_value = st.session_state["selected_id"]
+    name, dblp_id = split_name_and_id(selected_value)
+    st.session_state["selected_name"] = name
+    st.session_state["selected_dblp_id"] = dblp_id
 
 def view_search_id():
-    st.title("Search for your DBLP ID")
-    author_name = st.text_input("Your name", key='text_input', on_change=on_name_change)
+    st.subheader("Search for your DBLP ID")
+    st.info("You can also search for your ID in the DBLP search, https://dblp.org/search")
+    author_name = st.text_input("Your name", key='text_input')
+    search_button = st.button('Search for DBLP ID')
+
+    if "selected_name" in st.session_state and "selected_dblp_id" in st.session_state:
+        selected_results_container = st.container(border=True)
+        selected_results_container.subheader("Selected Person:")
+        selected_results_container.write(f"\tFull Name: {st.session_state['selected_name']}")
+        selected_results_container.write(f"\tDBLP ID: {st.session_state['selected_dblp_id']}")
 
     if search_button:
         res_list = get_person_candidates(author_name)
-        df = pd.DataFrame(res_list, columns=['Name', 'URL'])
-        st.dataframe(
-        df,
-        column_config={
-            "URL": st.column_config.LinkColumn(
-            ),
-        },
-        hide_index=True,
-        )
-    else:
-        pass
+        res_list = ["Not Selected"] + [f"{res[0]} ({res[1]})" for res in res_list]
+        st.session_state["res_list"] = res_list
+        
+    if "res_list" in st.session_state:
+        selected_id = st.radio(
+        "DBLP search results:",
+        st.session_state["res_list"],
+        key="selected_id",
+        on_change=on_selectbox_change)
 
-    st.info("You can also search for your ID in the DBLP search, https://dblp.org/search")
-    
 
 def generate_coauthors_and_proceedings():
     st.subheader("Generate coauthor and proceedings files for Wikidata linking")
     # "https://dblp.org/pid/134/6661"
-    dblp_id = st.text_input("Your DBLP ID", key='dblp_id')
+    if "selected_dblp_id" in st.session_state:
+        dblp_id = st.text_input("Your DBLP ID", key='dblp_id', value=st.session_state["selected_dblp_id"], disabled=True)
+        st.button("Clear DBLP ID", on_click=clear_dblp_id, key="clear_id_1")
+    else:
+        dblp_id = st.text_input("Your DBLP ID", key='dblp_id')
     generate_coauthors_button = st.button('Generate Files')
     if generate_coauthors_button:
         print("Querying for coauthors in DBLP")
@@ -69,6 +94,11 @@ def generate_coauthors_and_proceedings():
 
 def generate_articles_and_authors():
     st.subheader("Generate scholary article list for ingesting to Wikidata")
+    if "selected_dblp_id" in st.session_state:
+        dblp_id = st.text_input("Your DBLP ID", key='dblp_id_2', value=st.session_state["selected_dblp_id"], disabled=True)
+        st.button("Clear DBLP ID", on_click=clear_dblp_id, key="clear_id_2")
+    else:
+        dblp_id = st.text_input("Your DBLP ID", key='dblp_id_2')
     st.subheader("Linked Coauthors File:")
     coauthor_map_file = st.file_uploader("Upload coauthor map file", type="csv")
     if coauthor_map_file is not None:
@@ -105,13 +135,22 @@ def generate_articles_and_authors():
         st.dataframe(scholarly_article_author_list)
 
 
+# Initialize session state if not already done
+if 'current_view' not in st.session_state:
+    st.session_state.current_view = "search_id"
+
 st.title('DBLP to Wikidata: Publish Your Scholar Data to Wikidata')
 st.sidebar.title("Follow the steps:")
-st.sidebar.button("1. Search your DBLP ID", on_click=view_search_id)
-st.sidebar.button("2. Generate coauthors and proceedings", on_click=generate_coauthors_and_proceedings)
-st.sidebar.button("3. Generate scholarly articles and article authors", on_click=generate_coauthors_and_proceedings,)
-#generate_coauthors_and_proceedings()
-generate_articles_and_authors()
+st.sidebar.button("1. Search your DBLP ID", on_click=set_current_view, args=('search_id',))
+st.sidebar.button("2. Generate coauthors and proceedings", on_click=set_current_view, args=('coauthor_proceeding',))
+st.sidebar.button("3. Generate scholarly articles and article authors", on_click=set_current_view, args=('articles_authors',))
+
+if st.session_state.current_view == "search_id":
+    view_search_id()
+elif st.session_state.current_view == "coauthor_proceeding":
+    generate_coauthors_and_proceedings()
+elif st.session_state.current_view == "articles_authors":
+    generate_articles_and_authors()
 
 
 
