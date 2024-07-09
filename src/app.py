@@ -20,6 +20,14 @@ def clear_dblp_id():
     st.session_state.current_view = "search_id"
     del st.session_state["selected_name"]
     del st.session_state["selected_dblp_id"]
+    if 'coauthor_list' in st.session_state:
+        del st.session_state['coauthor_list']
+    if 'proceedings_list' in st.session_state:
+        del st.session_state['proceedings_list']
+    if 'scholarly_article_list' in st.session_state:
+        del st.session_state['scholarly_article_list']
+    if 'scholarly_article_author_list' in st.session_state:
+        del st.session_state['scholarly_article_author_list']
 
 def on_selectbox_change():
     selected_value = st.session_state["selected_id"]
@@ -143,26 +151,55 @@ def generate_articles_and_authors():
     st.subheader("Generate scholary article list for ingesting to Wikidata")
 
     generate_articles_button = st.button('Generate files')
-    if generate_articles_button:
+    if generate_articles_button or 'scholarly_article_list' in st.session_state:
         #print("Querying for scholarly articles in DBLP")
         progress_bar_2 = st.progress(33)
         status_text_2 = st.empty()
         status_text_2.text(f"Progress: 33%")
-        scholarly_article_list = get_scholarly_article_list(dblp_id)
+        if 'scholarly_article_list' in st.session_state:
+            scholarly_article_list = st.session_state['scholarly_article_list']
+        else:
+            scholarly_article_list = get_scholarly_article_list(dblp_id)
+            st.session_state['scholarly_article_list'] = scholarly_article_list
         if proceedings_map_dict:
             scholarly_article_list['proceedings_id'] = scholarly_article_list['proceedings_id'].map(proceedings_map_dict)
+        st.subheader(f"Scholarly articles ({len(scholarly_article_list)})")
+        scholarly_article_list_csv = scholarly_article_list.to_csv(index=False)
+        scholarly_article_list_csv_bytes = scholarly_article_list_csv.encode('utf-8')
         st.dataframe(scholarly_article_list)
+
+        st.download_button(
+            label="Download scholary article list as a CSV",
+            data=scholarly_article_list_csv_bytes,
+            file_name='scholarly_article_list.csv',
+            mime='text/csv',
+        )
 
         progress_bar_2.progress(66)
         status_text_2.text(f"Progress: 66%")
 
-        scholarly_article_author_list = get_scholarly_article_author_list(dblp_id)
+        if 'scholarly_article_author_list' in st.session_state:
+            scholarly_article_author_list = st.session_state['scholarly_article_author_list']
+        else:
+            scholarly_article_author_list = get_scholarly_article_author_list(dblp_id)
+            st.session_state['scholarly_article_author_list'] = scholarly_article_author_list
+
         if author_map_dict:
             scholarly_article_author_list['author_wd_id'] = scholarly_article_author_list['name'].map(author_map_dict)
         scholarly_article_author_list['author_name_string'] = scholarly_article_author_list.apply(lambda row: row['name'] if pd.isna(row['author_wd_id']) else None, axis=1)
 
         scholarly_article_author_list = scholarly_article_author_list[['dblp_id', 'title', 'ordinal', 'author_wd_id', 'author_name_string']]
+        scholarly_article_author_list_csv = scholarly_article_author_list.to_csv(index=False)
+        scholarly_article_author_list_csv_bytes = scholarly_article_author_list_csv.encode('utf-8')
+        st.subheader(f"Scholarly article-author pairs ({len(scholarly_article_author_list)})")
         st.dataframe(scholarly_article_author_list)
+
+        st.download_button(
+            label="Download scholary article-author pairs list as a CSV",
+            data=scholarly_article_author_list_csv_bytes,
+            file_name='scholarly_article_author_list.csv',
+            mime='text/csv',
+        )
 
         progress_bar_2.progress(100)
         status_text_2.text(f"Progress: 100%")

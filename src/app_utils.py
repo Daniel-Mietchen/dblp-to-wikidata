@@ -192,6 +192,7 @@ def get_scholarly_article_author_list(dblp_person_id):
     query = scholarly_article_author_list_query.replace("__replace_author_id__", dblp_person_id)
     df = execute_query(query, scholarly_article_author_list_vars)
     df['dblp_id'] = df['dblp_id'].str.replace("https://dblp.org/rec/", "", regex=False)
+    df['title'] = df['title'].apply(remove_clean_fullstop)
     return df
 
 def get_coauthors_list(dblp_person_id):
